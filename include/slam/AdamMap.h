@@ -122,7 +122,7 @@ public:
         });
         std::vector<PointCluster> sampled;
         for (const auto &[voxel, voxel_block] : map_) {
-            if (voxel_block.N >=3 ) sampled.push_back(voxel_block);
+            if (voxel_block.N >=3) sampled.push_back(voxel_block);
         }
         return sampled;
     }
@@ -159,18 +159,7 @@ Sophus::SE3d Frame::GetPose()
 
 class VoxelBlock {
 public:
-    VoxelBlock() : mpSetParent(this), point_cluster_(), mMutex(new boost::shared_mutex) {}
-    //VoxelBlock (int nTreeDepth=0) : mnTreeDepth(nTreeDepth), mpSetParent(this) {}
-    
-    VoxelBlock *find_root(VoxelBlock *pvb) {
-        if (pvb->mpSetParent != pvb->mpSetParent->mpSetParent) {
-            pvb->mpSetParent = find_root(pvb->mpSetParent);
-        }
-        return pvb->mpSetParent;
-    }
-    VoxelBlock *find_root() {
-        return find_root(this);
-    }
+    VoxelBlock() : point_cluster_(), mMutex(new boost::shared_mutex) {}
     bool insert(Frame *pKF, PointCluster pc)
     {
         boost::unique_lock<boost::shared_mutex> lock(*mMutex);
@@ -192,16 +181,7 @@ public:
     double N() const { return (double)point_cluster_.N; }
     void SetBadFlag()
     {
-        if (!mbBad) return;
-        VoxelBlock *root = find_root(this);
-        for (VoxelBlock *child : mspSetChildren)
-        {
-            if (!child->mbBad)
-            {
-                child->mpSetParent = root;
-                root->mspSetChildren.insert(child);
-            }
-        }
+        if (mbBad) return;
         boost::unique_lock<boost::shared_mutex> lock(*mMutex);
         mPointClusters.clear();
         mbBad = true;
@@ -210,13 +190,6 @@ public:
     void OptimizeLandmark();
 
 public:
-    VoxelBlock *mpSetParent;
-    //VoxelBlock *mpTreeParent = NULL;
-    std::set<VoxelBlock *> mspSetChildren;
-    //std::set<VoxelBlock *> mspTreeChildren;
-
-    //int mnTreeDepth;
-    //const static int mnMaxTreeDepth = 2;
     bool mbBad = false;
     unsigned long mnBALocalForKF = 0;
 
@@ -254,7 +227,6 @@ JacobianHessianTuple VoxelBlock::CalJacobianHessian(const std::unordered_map<Fra
     std::vector<Eigen::Vector6d> g_kl[3];
  
     if (ld[0] > ld[1] * 0.1 || ld[0] > 0.1) return JH;
-    //std::cout << ld.transpose() << std::endl;
     ld[1] = 2.0 / (ld[0] - ld[1]);
     ld[2] = 2.0 / (ld[0] - ld[2]);
     for (int k = 0; k < 3; k++)
@@ -459,7 +431,6 @@ double AdamMap::PlaneBundleAdjustment()
     std::unordered_map<Frame*, int> mpKFs;
     std::vector<std::shared_ptr<VoxelBlock> > voxel_blocks;
     voxel_blocks.reserve(map_.size());
-    double N = 0;
     {
         boost::mutex::scoped_lock lock(mMutexFrame);
         if ((int)mlpSlidingWindow.size() < mnMinSlidingWindowSize) return 0;
@@ -476,23 +447,12 @@ double AdamMap::PlaneBundleAdjustment()
                     if (pvb->mbBad || pvb->mnBALocalForKF == mnBALocalForCurrentKF) continue;
                     pvb->mnBALocalForKF = mnBALocalForCurrentKF;
                     voxel_blocks.push_back(pvb);
-                    //N += pvb->N();
                 }
             }
             else std::cout << "WARNING: KeyFrame without observed features\n";
         }
     }
     JacobianHessianTuple JH(vpKFs.size());
-    /*for (int i = 0; i < (int)vpKFs.size(); i++) mpKFs[vpKFs[i]] = i;
-    {
-        boost::shared_lock<boost::shared_mutex> lock(mMutexMap);
-        for (auto mit=map_.begin(), mend=map_.end(); mit != mend; mit++)
-        {
-            if (mit->second->mbBad) continue;
-            voxel_blocks.push_back(mit.value());
-            N += voxel_blocks.back()->N();
-        }
-    }*/
     JH = tbb::parallel_reduce(
         tbb::blocked_range<size_t>(0, voxel_blocks.size()), JacobianHessianTuple((int)vpKFs.size()),
         [&](const tbb::blocked_range<size_t> &r, JacobianHessianTuple JH_) -> JacobianHessianTuple {
@@ -523,19 +483,9 @@ double AdamMap::PlaneBundleAdjustment()
     Eigen::MatrixXd D(6 * vpKFs.size(), 6 * vpKFs.size()); D.setZero();
     D.diagonal() = JH.DTHD.diagonal() * levenberg_marquardt;
     Eigen::VectorXd dx = (JH.DTHD + D).ldlt().solve(-JH.DTJT);
-    /*for (size_t i = 0; i < vpKFs.size(); i++) {
-        Eigen::Vector6d dxi = dx.block<6,1>(i*6, 0);
-        if (dxi.norm() > 0.1)
-        {
-            printf("\033[1;33mWARNING: Plane BA failed to converge (norm: %f/%f)\033[0m\n",dx.norm(),dxi.norm());
-            return dx.norm();
-        }
-    }*/
     for (size_t i = 0; i < vpKFs.size(); i++) {
         Sophus::SE3d pose = vpKFs[i]->GetPose();
         Eigen::Vector6d dxi = dx.block<6,1>(i*6, 0);
-        //dxi.block<3,1>(0,0) = dx.block<3,1>(i*6+3,0);
-        //dxi.block<3,1>(3,0) = dx.block<3,1>(i*6,0);
         vpKFs[i]->SetPose(Sophus::SE3d::exp(dxi) * pose);
     }
     boost::unique_lock<boost::shared_mutex> lock(mMutexMap);
@@ -561,11 +511,10 @@ void AdamMap::AddKeyFrame(Frame *pKF, pcl::PointCloud<pcl::PointXYZI>::Ptr point
             auto search = map_.find(voxel);
             if (search != map_.end()) {
                 auto &voxel_block = search.value();
-                if (!voxel_block->mbBad && !voxel_block->insert(pKF, plane))
-                    voxel_block->SetBadFlag();
-                else {
-                    //std::shared_ptr<VoxelBlock> pvb = voxel_block;
-                    spObservedPlanes.insert(voxel_block);
+                if (!voxel_block->mbBad) {
+                    if (voxel_block->insert(pKF, plane))
+                        spObservedPlanes.insert(voxel_block);
+                    else voxel_block->SetBadFlag();
                 }
             } else {
                 auto pvb = std::make_shared<VoxelBlock>();
