@@ -2,7 +2,7 @@
 This repository presents a simple yet effective real-time lidar odometry and mapping system built upon plane features. 
 
 <div align="center">
-  <img src=figures/local_map.png width=80%/>
+  <img src=figures/PlaneLO.png width=80%/>
 </div>
 
 ## 1. Installation
