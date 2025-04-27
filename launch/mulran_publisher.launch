@@ -1,0 +1,12 @@
+<launch>
+
+    <param name="dataset_folder" type="string" value="/media/jacko/My Passport/MulRan/" />
+    <param name="sequence_number" type="string" value="KAIST01" />
+    <param name="publish_delay" type="double" value="0.2" />
+    <param name="maximum_range" type="double" value="120.0" />
+    <param name="minimum_range" type="double" value="2.0" />
+    <param name="start_frame_id" type="int" value="0" />
+    
+    <node pkg="desk_slam" type="mulranPublisher" name="mulranPublisher" output="screen" />
+
+</launch>
