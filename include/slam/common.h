@@ -17,8 +17,6 @@
 #include <pcl/point_cloud.h>
 
 
-typedef Eigen::Matrix<float, 1, 64> Vector64;
-typedef float array64[64];
 
 namespace Eigen {
 using Matrix6d = Eigen::Matrix<double, 6, 6>;
@@ -26,75 +24,6 @@ using Matrix3_6d = Eigen::Matrix<double, 3, 6>;
 using Vector6d = Eigen::Matrix<double, 6, 1>;
 }  // namespace Eigen
 
-namespace pcl {
-    struct KeyPoint {
-        PCL_ADD_POINT4D;
-        float unc;
-        array64 desc;
-        PCL_MAKE_ALIGNED_OPERATOR_NEW;
-    } EIGEN_ALIGN16;
-}
-POINT_CLOUD_REGISTER_POINT_STRUCT (
-    pcl::KeyPoint,
-    (float, x, x)
-    (float, y, y)
-    (float, z, z)
-    (float, unc, unc)
-    (array64, desc, desc)
-)
-
-
-class BaseMapPoint
-{
-public:
-    BaseMapPoint() {}
-    BaseMapPoint(BaseMapPoint &pt) : xyz(pt.xyz) {}
-    BaseMapPoint(Eigen::Vector3d pos) : xyz(pos) {}
-    BaseMapPoint(double x, double y, double z) : xyz(x,y,z) {}
-    virtual Eigen::Vector3d GetPos() { return xyz; }
-
-    double Distance(BaseMapPoint &point) {
-        return (point.GetPos() - xyz).norm();
-    }
-    double Distance(const Eigen::Vector3d &point) {
-        return (point - xyz).norm();
-    }
-    double SquaredDistance(BaseMapPoint &point) {
-        return (point.GetPos() - xyz).squaredNorm();
-    }
-    double SquaredDistance(const Eigen::Vector3d &point) {
-        return (point - xyz).squaredNorm();
-    }
-    virtual void Transform(Sophus::SE3d pose) {
-        xyz = pose * xyz;
-    }
-    virtual void Transform(Eigen::Isometry3d pose) {
-        xyz = pose * xyz;
-    }
-    static Eigen::MatrixXf load_weight(std::string file, int rows, int cols) {
-        Eigen::MatrixXf data(rows, cols);
-        std::ifstream data_file(file, std::ios::in | std::ios::binary);
-        const size_t num_elements = rows * cols;
-
-        std::vector<float> data_buffer(num_elements);
-        data_file.read(reinterpret_cast<char*>(&data_buffer[0]), num_elements*sizeof(float));
-        data = Eigen::MatrixXf::Map(data_buffer.data(), rows, cols);
-        return data;
-    }
-    static void softmax(std::vector<float> &data) {
-        float sum_data = 0;
-        float max_data = *std::max_element(data.begin(), data.end());
-        for(size_t i = 0; i < data.size(); i++) {
-            data[i] = exp(data[i] - max_data);
-            sum_data += data[i];
-        }
-        std::transform(data.cbegin(), data.cend(), data.begin(),
-            [&](const auto &_data) { return _data / sum_data; });
-    }
-
-protected:
-    Eigen::Vector3d xyz;
-};
 
 
 class TicToc
