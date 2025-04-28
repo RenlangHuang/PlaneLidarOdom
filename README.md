@@ -99,9 +99,8 @@ Meanwhile, you can launch the `savePath` roscpp node (refer to `kitti_publisher.
 ### Acknowledgments
 In this project we use (parts of) the official implementations of the following works: 
 
-- [KISS-ICP](https://github.com/PRBonn/kiss-icp) (motion compensation, data association, robust registration)
-- [A-LOAM](https://github.com/HKUST-Aerial-Robotics/A-LOAM) (kitti publisher, scan-to-scan and scan-to-map pipeline)
-- [tsl robin-map library](https://github.com/Tessil/robin-map) (from which the `include/tsl` is forked directly)
+- [KISS-ICP](https://github.com/PRBonn/kiss-icp) (motion compensation, adaptive threshold, voxel map, robust registration)
 - [BALM2](https://github.com/hku-mars/BALM) (point cluster, and plane BA)
+- [tsl robin-map library](https://github.com/Tessil/robin-map) (from which the `include/tsl` is forked directly)
 
 We thank the respective authors for open sourcing their methods. We would also like to thank reviewers.
