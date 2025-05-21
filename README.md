@@ -1,5 +1,5 @@
 ## Real-time Plane Lidar Odometry with Efficient Bundle Adjustment
-This repository presents a simple yet effective real-time lidar odometry and mapping system built upon plane features. 
+This repository presents a simple yet effective real-time lidar odometry and mapping system built upon plane features and bundle adjustment proposed by [BALM2](https://github.com/hku-mars/BALM) but much more easy to follow.
 
 <div align="center">
   <img src=figures/PlaneLO.png width=60%/>
